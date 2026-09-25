@@ -2,6 +2,73 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchTenantDashboardApi, fetchRecentVouchersApi } from "../services/tenantDashboardApi";
 import { formatIndianCurrency } from "../lib/formatters";
 
+/**
+ * Resolve 2-digit GST state code from branch GST number or state/name
+ * Delhi = '07', Maharashtra (Mumbai) = '27', etc.
+ */
+export function resolveGstStateCode(branch) {
+  const rawGst = (branch?.gst_number || branch?.gstState || "").trim();
+  if (rawGst.length >= 2 && /^\d{2}/.test(rawGst)) {
+    return rawGst.slice(0, 2);
+  }
+
+  const searchStr = `${branch?.state || ""} ${branch?.company_name || ""} ${branch?.name || ""}`.toLowerCase();
+  if (
+    searchStr.includes("mumbai") ||
+    searchStr.includes("maharashtra") ||
+    searchStr.includes("pune") ||
+    searchStr.includes("thane")
+  ) {
+    return "27"; // Maharashtra
+  }
+  if (searchStr.includes("delhi") || searchStr.includes("ncr")) {
+    return "07"; // Delhi
+  }
+  if (searchStr.includes("karnataka") || searchStr.includes("bangalore") || searchStr.includes("bengaluru")) {
+    return "29"; // Karnataka
+  }
+  if (searchStr.includes("tamil") || searchStr.includes("chennai")) {
+    return "33"; // Tamil Nadu
+  }
+  if (searchStr.includes("gujarat") || searchStr.includes("ahmedabad") || searchStr.includes("surat")) {
+    return "24"; // Gujarat
+  }
+  if (searchStr.includes("uttar pradesh") || searchStr.includes("noida") || searchStr.includes("lucknow")) {
+    return "09"; // Uttar Pradesh
+  }
+  if (searchStr.includes("west bengal") || searchStr.includes("kolkata")) {
+    return "19"; // West Bengal
+  }
+  if (searchStr.includes("haryana") || searchStr.includes("gurugram") || searchStr.includes("gurgaon")) {
+    return "06"; // Haryana
+  }
+  if (searchStr.includes("telangana") || searchStr.includes("hyderabad")) {
+    return "36"; // Telangana
+  }
+
+  return "07";
+}
+
+function mapBranchItem(b, idx, totalRev, colors) {
+  const rev = Number(b.revenue) || 0;
+  const sharePct = totalRev > 0 ? (rev / totalRev) * 100 : 0;
+  const gstState = resolveGstStateCode(b);
+
+  return {
+    id: b.company_id || b._id,
+    company_id: b.company_id || b._id,
+    name: b.company_name || b.name || "Branch",
+    company_name: b.company_name || b.name || "Branch",
+    gst_number: b.gst_number || (gstState === "27" ? "27ABCDE1234F1Z5" : "07ABCDE1234F1Z5"),
+    gstState,
+    state: b.state || (gstState === "27" ? "Maharashtra" : "Delhi"),
+    revenue: rev,
+    share: `${sharePct.toFixed(1)}%`,
+    sharePct,
+    color: colors[idx % colors.length],
+  };
+}
+
 export function useTenantDashboard({ tenantId, token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,24 +116,7 @@ export function useTenantDashboard({ tenantId, token }) {
         const colors = ["#2563EB", "#3B82F6", "#059669", "#475569", "#8B5CF6", "#F59E0B"];
         const totalRev = Number(dashboard.summary?.total_revenue) || 1;
         const mapped = dashboard.breakdown
-          .map((b, idx) => {
-            const rev = Number(b.revenue) || 0;
-            const sharePct = totalRev > 0 ? (rev / totalRev) * 100 : 0;
-            const rawGst = b.gst_number || "";
-            const gstState = rawGst.length >= 2 ? rawGst.slice(0, 2) : "07";
-
-            return {
-              id: b.company_id,
-              company_id: b.company_id,
-              name: b.company_name || "Branch",
-              company_name: b.company_name || "Branch",
-              gstState,
-              revenue: rev,
-              share: `${sharePct.toFixed(1)}%`,
-              sharePct,
-              color: colors[idx % colors.length],
-            };
-          })
+          .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
           .sort((a, b) => b.revenue - a.revenue);
 
         if (mapped.length > masterBranches.length) {
@@ -166,24 +216,7 @@ export function useTenantDashboard({ tenantId, token }) {
     const colors = ["#2563EB", "#3B82F6", "#059669", "#475569", "#8B5CF6", "#F59E0B"];
 
     return data.breakdown
-      .map((b, idx) => {
-        const rev = Number(b.revenue) || 0;
-        const sharePct = totalRev > 0 ? (rev / totalRev) * 100 : 0;
-        const rawGst = b.gst_number || "";
-        const gstState = rawGst.length >= 2 ? rawGst.slice(0, 2) : "07";
-
-        return {
-          id: b.company_id,
-          company_id: b.company_id,
-          name: b.company_name || "Branch",
-          company_name: b.company_name || "Branch",
-          gstState,
-          revenue: rev,
-          share: `${sharePct.toFixed(1)}%`,
-          sharePct,
-          color: colors[idx % colors.length],
-        };
-      })
+      .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
       .sort((a, b) => b.revenue - a.revenue);
   }, [masterBranches, data, summary]);
 
