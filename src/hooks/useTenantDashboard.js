@@ -82,9 +82,46 @@ export function useTenantDashboard({ tenantId, token }) {
   const [dateRange, setDateRange] = useState({
     fromDate: "2026-04-01",
     toDate: "2026-09-25",
-    label: "01 Apr 2026 - 25 Sep 2026",
+    label: "01 Apr 2026 – 25 Sep 2026",
     quarter: "Q1-Q2",
   });
+
+  const handleFiscalYearChange = useCallback((newFy) => {
+    setFiscalYear(newFy);
+    if (newFy === "FY 2026-27") {
+      setDateRange({
+        fromDate: "2026-04-01",
+        toDate: "2026-09-25",
+        label: "01 Apr 2026 – 25 Sep 2026",
+        quarter: "Q1-Q2",
+      });
+    } else if (newFy === "FY 2025-26") {
+      setDateRange({
+        fromDate: "2025-04-01",
+        toDate: "2026-03-31",
+        label: "01 Apr 2025 – 31 Mar 2026",
+        quarter: "Full Year",
+      });
+    } else if (newFy === "FY 2024-25") {
+      setDateRange({
+        fromDate: "2024-04-01",
+        toDate: "2025-03-31",
+        label: "01 Apr 2024 – 31 Mar 2025",
+        quarter: "Full Year",
+      });
+    } else {
+      const match = newFy.match(/(\d{4})/);
+      if (match) {
+        const y = parseInt(match[1], 10);
+        setDateRange({
+          fromDate: `${y}-04-01`,
+          toDate: `${y + 1}-03-31`,
+          label: `01 Apr ${y} – 31 Mar ${y + 1}`,
+          quarter: "Full Year",
+        });
+      }
+    }
+  }, []);
   const [selectedBranchId, setSelectedBranchId] = useState(null); // null = consolidated
   const [trendView, setTrendView] = useState("monthly"); // monthly | quarterly | cumulative
   const [voucherPage, setVoucherPage] = useState(1);
@@ -206,19 +243,17 @@ export function useTenantDashboard({ tenantId, token }) {
 
   // Always keep all branches available for dropdown selector
   const branches = useMemo(() => {
-    if (masterBranches.length > 0) return masterBranches;
-
     if (!data?.breakdown || data.breakdown.length === 0) {
-      return [];
+      return masterBranches;
     }
 
-    const totalRev = summary.total_revenue || 1;
+    const totalRev = Number(summary.total_revenue) || 1;
     const colors = ["#2563EB", "#3B82F6", "#059669", "#475569", "#8B5CF6", "#F59E0B"];
 
     return data.breakdown
       .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [masterBranches, data, summary]);
+  }, [masterBranches, data?.breakdown, summary.total_revenue]);
 
   // Currently selected branch object
   const selectedBranch = useMemo(() => {
@@ -296,7 +331,7 @@ export function useTenantDashboard({ tenantId, token }) {
     selectBranch,
     toggleBranchIsolation,
     fiscalYear,
-    setFiscalYear,
+    setFiscalYear: handleFiscalYearChange,
     dateRange,
     setDateRange,
     trendView,

@@ -10,7 +10,6 @@ import { SalesPurchasesTrendChart } from "./SalesPurchasesTrendChart";
 import { BranchContributionPanel } from "./BranchContributionPanel";
 import { TaxBreakdownCards } from "./TaxBreakdownCards";
 import { RecentTransactionsTable } from "./RecentTransactionsTable";
-import { DashboardFooter } from "./DashboardFooter";
 import { AlertCircle, RefreshCw, X } from "lucide-react";
 
 export function DashboardPage() {
@@ -159,7 +158,7 @@ export function DashboardPage() {
               loading={loading}
               viewMode={trendView}
               onViewModeChange={setTrendView}
-              periodLabel="H1 FY 2026-27"
+              periodLabel={fiscalYear === "FY 2026-27" ? "H1 FY 2026-27" : fiscalYear}
               monthlyTrend={summary.monthly_trend}
               cashCycleDays={cashCycleDays}
               itcUtilizedNote="Input Tax Credit verified for active return"
@@ -200,12 +199,6 @@ export function DashboardPage() {
             onAuditClick={(voucher) => setAuditingVoucher(voucher)}
           />
         </section>
-
-        {/* 7. DASHBOARD FOOTER */}
-        <DashboardFooter
-          groupName={`${tenantDisplayName} Corporate Group`}
-          generatedDate="25 Sep 2026, 11:20 IST"
-        />
       </main>
 
       {/* AUDIT MODAL DIALOG */}
