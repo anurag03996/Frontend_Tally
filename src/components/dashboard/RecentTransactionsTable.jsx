@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import {
-  Search,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
+  RotateCcw,
 } from "lucide-react";
 import { formatIndianCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function RecentTransactionsTable({
   vouchers = [],
@@ -19,9 +20,9 @@ export function RecentTransactionsTable({
   entitiesCount = 5,
   branches = [],
   selectedBranch = null,
+  onResetFilter,
   onAuditClick,
 }) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [localPage, setLocalPage] = useState(1);
 
@@ -100,18 +101,11 @@ export function RecentTransactionsTable({
   // Client filtering
   const filteredList = useMemo(() => {
     return normalizedTransactions.filter((tx) => {
-      const matchSearch =
-        !searchTerm ||
-        tx.party.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(tx.refNumber).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.branch.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchType =
         typeFilter === "all" || tx.type.toLowerCase() === typeFilter.toLowerCase();
-
-      return matchSearch && matchType;
+      return matchType;
     });
-  }, [normalizedTransactions, searchTerm, typeFilter]);
+  }, [normalizedTransactions, typeFilter]);
 
   const effectiveTotal = Math.max(totalCount, normalizedTransactions.length);
   const totalPages = Math.max(1, Math.ceil(effectiveTotal / pageSize));
@@ -129,15 +123,10 @@ export function RecentTransactionsTable({
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
               RECENT LEDGER TRANSACTIONS (DAYBOOK FEED)
             </h3>
-            {selectedBranch ? (
+            {selectedBranch && (
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10.5px] font-semibold border border-blue-200 shadow-2xs">
                 <span className="size-1.5 rounded-full bg-blue-600" />
                 Branch: {selectedBranch.name}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10.5px] font-semibold border border-emerald-200/60">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Sync • All {entitiesCount} Entities
               </span>
             )}
           </div>
@@ -150,21 +139,6 @@ export function RecentTransactionsTable({
 
         {/* Filter controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                handlePageChange(1);
-              }}
-              placeholder="Search party, voucher #..."
-              className="h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-48 sm:w-56 transition-all"
-            />
-          </div>
-
           {/* Type filter */}
           <select
             value={typeFilter}
@@ -179,6 +153,26 @@ export function RecentTransactionsTable({
             <option value="Purchase">Purchase</option>
             <option value="Journal">Journal</option>
           </select>
+
+          {/* Reset Filter Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter("all");
+              handlePageChange(1);
+              onResetFilter?.();
+            }}
+            className={cn(
+              "h-8 px-2.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer",
+              typeFilter !== "all" || selectedBranch
+                ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            )}
+            title="Reset filters"
+          >
+            <RotateCcw className="size-3 text-slate-500" />
+            <span>Reset Filter</span>
+          </button>
 
           {/* Export Daybook */}
           <button
@@ -207,14 +201,36 @@ export function RecentTransactionsTable({
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
             {loading ? (
-              <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="size-2 rounded-full bg-blue-600 animate-ping" />
-                    <span>Loading transactions...</span>
-                  </div>
-                </td>
-              </tr>
+              Array.from({ length: 8 }).map((_, idx) => (
+                <tr key={idx} className="border-b border-slate-100">
+                  <td className="py-3 px-4">
+                    <Skeleton className="h-3.5 w-20" />
+                  </td>
+                  <td className="py-3 px-4">
+                    <Skeleton className="h-5 w-28 rounded-full" />
+                  </td>
+                  <td className="py-3 px-4">
+                    <Skeleton className="h-5 w-16 rounded-md" />
+                  </td>
+                  <td className="py-3 px-4">
+                    <Skeleton className="h-3.5 w-40" />
+                    <Skeleton className="h-2.5 w-24 mt-1.5" />
+                  </td>
+                  <td className="py-3 px-4">
+                    <Skeleton className="h-3.5 w-24 font-mono" />
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex justify-center">
+                      <Skeleton className="size-6 rounded-md" />
+                    </div>
+                  </td>
+                </tr>
+              ))
             ) : filteredList.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-slate-400">

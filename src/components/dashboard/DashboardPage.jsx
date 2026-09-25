@@ -140,6 +140,7 @@ export function DashboardPage() {
         {/* 3. 6 TOP KPI METRIC CARDS */}
         <section aria-label="KPI Metrics">
           <KpiSummaryGrid
+            loading={loading}
             totalSales={summary.total_revenue}
             totalPurchases={summary.total_purchase}
             receivables={summary.total_receivable}
@@ -167,9 +168,8 @@ export function DashboardPage() {
 
           <div className="lg:col-span-5">
             <BranchContributionPanel
+              loading={loading}
               branches={branches}
-              selectedBranchId={selectedBranchId}
-              onSelectBranch={toggleBranchIsolation}
             />
           </div>
         </section>
@@ -177,6 +177,7 @@ export function DashboardPage() {
         {/* 5. TAX REALISATION & ITC RECONCILIATION CARDS */}
         <section aria-label="Tax Realisation & Reconciliation">
           <TaxBreakdownCards
+            loading={loading}
             taxSummary={summary.tax_summary}
             totalSales={summary.total_revenue}
             totalPurchases={summary.total_purchase}
@@ -187,7 +188,7 @@ export function DashboardPage() {
         <section aria-label="Recent Transactions">
           <RecentTransactionsTable
             vouchers={vouchersData?.data}
-            loading={loadingVouchers}
+            loading={loading || loadingVouchers}
             totalCount={vouchersData?.total_count || summary.total_vouchers}
             page={voucherPage}
             pageSize={10}
@@ -195,6 +196,7 @@ export function DashboardPage() {
             entitiesCount={totalEntitiesCount}
             branches={branches}
             selectedBranch={selectedBranch}
+            onResetFilter={() => selectBranch(null)}
             onAuditClick={(voucher) => setAuditingVoucher(voucher)}
           />
         </section>

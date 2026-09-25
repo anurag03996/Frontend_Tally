@@ -1,11 +1,52 @@
 import { formatIndianCurrency } from "@/lib/formatters";
 import { FileText, Receipt, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function TaxBreakdownCards({
   taxSummary = null,
   totalSales = 0,
   totalPurchases = 0,
+  loading = false,
 }) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[1, 2].map((i) => (
+          <div
+            key={i}
+            className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-2xs flex flex-col justify-between"
+          >
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="size-6 rounded-md" />
+                  <Skeleton className="h-3.5 w-48" />
+                </div>
+                <Skeleton className="h-5 w-24 rounded-full" />
+              </div>
+
+              {/* Rows */}
+              <div className="divide-y divide-slate-100 text-xs mt-2">
+                {[1, 2, 3, 4].map((row) => (
+                  <div key={row} className="py-2.5 flex items-center justify-between">
+                    <Skeleton className="h-3 w-48" />
+                    <Skeleton className="h-3.5 w-24" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom net bar */}
+            <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between bg-slate-50/70 -mx-5 -mb-5 px-5 py-3 rounded-b-xl">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-5 w-36" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   // If backend provided real taxSummary, use it; otherwise compute cleanly from current totals
   const sales = taxSummary?.sales || {
     invoice_count: "Direct Sales",

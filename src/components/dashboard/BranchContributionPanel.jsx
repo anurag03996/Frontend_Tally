@@ -1,37 +1,53 @@
-import { X, Filter } from "lucide-react";
 import { formatIndianCurrency } from "@/lib/formatters";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function BranchContributionPanel({
   branches = [],
-  selectedBranchId = null,
-  onSelectBranch,
+  loading = false,
 }) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-2xs flex flex-col justify-between h-full">
+        <div>
+          {/* Card Header */}
+          <div className="pb-3 border-b border-slate-100">
+            <Skeleton className="h-3.5 w-52" />
+          </div>
+
+          {/* Branch Progress Bars List Skeleton */}
+          <div className="space-y-3.5 mt-4">
+            {[85, 35, 22, 12, 6].map((w, idx) => (
+              <div key={idx} className="p-2 rounded-lg border border-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="size-2 rounded-full" />
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3.5 w-12 rounded" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-3.5 w-20" />
+                    <Skeleton className="h-3 w-10" />
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <Skeleton className="h-full rounded-full" style={{ width: `${w}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-2xs flex flex-col justify-between h-full">
       <div>
         {/* Card Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              BRANCH CONTRIBUTION &amp; REGIONAL WEIGHT
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Click branch to isolate data
-            </p>
-          </div>
-
-          {selectedBranchId && (
-            <button
-              onClick={() => onSelectBranch?.(null)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-semibold hover:bg-blue-100 transition-colors cursor-pointer border border-blue-200"
-              title="Reset branch filter"
-            >
-              <Filter className="size-3" />
-              <span>Reset filter</span>
-              <X className="size-3 ml-0.5" />
-            </button>
-          )}
+        <div className="pb-3 border-b border-slate-100">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            BRANCH CONTRIBUTION &amp; REGIONAL WEIGHT
+          </h3>
         </div>
 
         {/* Branch Progress Bars List */}
@@ -42,17 +58,10 @@ export function BranchContributionPanel({
             </div>
           ) : (
             branches.map((branch) => {
-              const isSelected = selectedBranchId === branch.id;
               return (
                 <div
                   key={branch.id}
-                  onClick={() => onSelectBranch?.(branch.id)}
-                  className={cn(
-                    "p-2 rounded-lg transition-all cursor-pointer border",
-                    isSelected
-                      ? "bg-blue-50/70 border-blue-300 shadow-2xs"
-                      : "border-transparent hover:bg-slate-50 hover:border-slate-200"
-                  )}
+                  className="p-2 rounded-lg border border-slate-100/80 bg-slate-50/40"
                 >
                   {/* Branch name + GST code + Revenue + Share */}
                   <div className="flex items-center justify-between text-xs mb-1.5">
@@ -60,7 +69,7 @@ export function BranchContributionPanel({
                       <span className="font-semibold text-slate-800 truncate">
                         {branch.name}
                       </span>
-                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-mono text-[10px] font-semibold border border-slate-200 shrink-0">
+                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-semibold border border-slate-200 shrink-0">
                         GST: {branch.gstState}
                       </span>
                     </div>

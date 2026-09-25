@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatIndianCurrency } from "@/lib/formatters";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function SalesPurchasesTrendChart({
   loading = false,
@@ -159,6 +160,71 @@ export function SalesPurchasesTrendChart({
     const maxVal = Math.max(...dataPoints.map((d) => Math.max(d.sales, d.purchases)), 10);
     return Math.ceil(maxVal * 1.25);
   }, [dataPoints]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-2xs flex flex-col justify-between h-full">
+        <div>
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-3 w-80 mt-1.5" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-7.5 w-60 rounded-lg" />
+            </div>
+          </div>
+
+          {/* Legend Skeleton */}
+          <div className="flex items-center gap-5 mt-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-2 rounded-full" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-2 rounded-full" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+
+          {/* Chart Canvas Skeleton with paired shimmering bars & guide lines */}
+          <div className="relative mt-4 h-48 w-full flex items-end justify-between px-6 pb-6 pt-4 border-b border-slate-100">
+            {/* Guide lines */}
+            <div className="absolute inset-x-6 top-8 border-b border-dashed border-slate-100" />
+            <div className="absolute inset-x-6 top-20 border-b border-dashed border-slate-100" />
+            <div className="absolute inset-x-6 top-32 border-b border-dashed border-slate-100" />
+
+            {[75, 25, 45, 15, 60, 85].map((h, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 z-10">
+                <div className="flex items-end gap-1.5 h-36">
+                  <Skeleton
+                    className="w-4.5 rounded-t-sm"
+                    style={{ height: `${h}%` }}
+                  />
+                  <Skeleton
+                    className="w-4.5 rounded-t-sm"
+                    style={{ height: `${Math.max(15, h * 0.7)}%` }}
+                  />
+                </div>
+                <Skeleton className="h-2.5 w-10 mt-1" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer info note */}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-3 mt-4 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-3.5 rounded-full" />
+            <Skeleton className="h-3 w-64" />
+          </div>
+          <Skeleton className="h-3 w-28" />
+        </div>
+      </div>
+    );
+  }
 
   const getY = (val) => {
     const safeMax = maxScale || 1;
