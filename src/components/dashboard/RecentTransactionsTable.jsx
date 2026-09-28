@@ -71,6 +71,8 @@ export function RecentTransactionsTable({
 
       return {
         id: v._id || `v-${i}`,
+        voucherId: v._id,
+        companyId: v.company_id,
         date: v.date
           ? new Date(v.date).toLocaleDateString("en-IN", {
               day: "2-digit",
@@ -88,12 +90,18 @@ export function RecentTransactionsTable({
             ? "bg-purple-100/70 text-purple-800"
             : "bg-slate-100 text-slate-700",
         party: partyName,
+        partyGstin: v.party_gstin || null,
         ledger: v.ledger_name || (type.toLowerCase().includes("sale") ? "Sales Account" : type.toLowerCase().includes("purchase") ? "Purchase Account" : "Ledger Entry"),
         refNumber: refNo,
+        referenceNumber: v.reference_number || refNo,
         amount: amt,
         entryType: isCr ? "Cr" : "Dr",
+        narration: v.narration || null,
+        placeOfSupply: v.place_of_supply || null,
+        guid: v.guid || null,
         status: "Reconciled",
         statusVariant: "reconciled",
+        raw: v,
       };
     });
   }, [vouchers, branchesMap]);

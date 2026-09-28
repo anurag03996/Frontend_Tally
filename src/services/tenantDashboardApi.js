@@ -97,3 +97,28 @@ export async function fetchRevenueExpenseTrendApi({ companyId, targetYear, token
   const result = await response.json();
   return result.data;
 }
+
+/**
+ * Fetch detailed voucher audit data including inventory line items and ledger impact
+ */
+export async function fetchVoucherDetailApi({ companyId, voucherId, token }) {
+  if (!companyId || !voucherId) return null;
+
+  const response = await fetch(
+    `${BACKEND_URL}/api/v1/tally/voucher/${encodeURIComponent(companyId)}/${encodeURIComponent(voucherId)}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(token),
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch voucher audit details");
+  }
+
+  const result = await response.json();
+  return result.data;
+}

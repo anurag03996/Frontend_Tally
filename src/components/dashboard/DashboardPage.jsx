@@ -8,9 +8,12 @@ import { HeaderControls } from "./HeaderControls";
 import { KpiSummaryGrid } from "./KpiSummaryGrid";
 import { SalesPurchasesTrendChart } from "./SalesPurchasesTrendChart";
 import { BranchContributionPanel } from "./BranchContributionPanel";
+import { ReceivablesAgingCard } from "./ReceivablesAgingCard";
+import { PurchaseMixCard } from "./PurchaseMixCard";
 import { TaxBreakdownCards } from "./TaxBreakdownCards";
 import { RecentTransactionsTable } from "./RecentTransactionsTable";
-import { AlertCircle, RefreshCw, X } from "lucide-react";
+import { VoucherAuditInspectorModal } from "./VoucherAuditInspectorModal";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 export function DashboardPage() {
   const { user, activeTenant, logout, token } = useAuth();
@@ -24,6 +27,8 @@ export function DashboardPage() {
   const {
     summary,
     netPosition,
+    receivablesAging,
+    purchaseMix,
     branches,
     selectedBranch,
     insights,
@@ -173,7 +178,21 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* 5. TAX REALISATION & ITC RECONCILIATION CARDS */}
+        {/* 5. RECEIVABLES AGING & PURCHASE MIX BREAKDOWN CARDS */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-5" aria-label="Receivables Aging and Purchase Mix">
+          <ReceivablesAgingCard
+            loading={loading}
+            totalReceivables={summary.total_receivable}
+            agingData={receivablesAging}
+          />
+          <PurchaseMixCard
+            loading={loading}
+            totalPurchases={summary.total_purchase}
+            purchaseMixData={purchaseMix}
+          />
+        </section>
+
+        {/* 6. TAX REALISATION & ITC RECONCILIATION CARDS */}
         <section aria-label="Tax Realisation & Reconciliation">
           <TaxBreakdownCards
             loading={loading}
@@ -201,67 +220,14 @@ export function DashboardPage() {
         </section>
       </main>
 
-      {/* AUDIT MODAL DIALOG */}
-      {auditingVoucher && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-slate-900">Voucher Audit Inspector</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
-                  {auditingVoucher.refNumber}
-                </span>
-              </div>
-              <button
-                onClick={() => setAuditingVoucher(null)}
-                className="size-7 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3.5 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Entity / Branch</span>
-                  <span className="font-semibold text-slate-800">{auditingVoucher.branch}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Posting Date</span>
-                  <span className="font-semibold text-slate-800">{auditingVoucher.date}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Voucher Type</span>
-                  <span className="font-semibold text-slate-800">{auditingVoucher.type}</span>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-slate-400 block text-[11px]">Party / Ledger</span>
-                <div className="font-bold text-sm text-slate-900 mt-0.5">{auditingVoucher.party}</div>
-                <div className="text-slate-500">{auditingVoucher.ledger}</div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Voucher Amount:</span>
-                <span className="font-mono font-bold text-base text-slate-900">
-                  ₹{Number(auditingVoucher.amount).toLocaleString("en-IN")}{" "}
-                  <span className="text-xs text-slate-400">{auditingVoucher.entryType}</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2">
-              <button
-                onClick={() => setAuditingVoucher(null)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-              >
-                Close Inspector
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* VOUCHER AUDIT INSPECTOR MODAL (Redesigned) */}
+      <VoucherAuditInspectorModal
+        isOpen={Boolean(auditingVoucher)}
+        onClose={() => setAuditingVoucher(null)}
+        voucher={auditingVoucher}
+        token={token}
+      />
     </div>
   );
 }
+
