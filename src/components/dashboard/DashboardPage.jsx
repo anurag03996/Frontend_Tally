@@ -13,7 +13,7 @@ import { PurchaseMixCard } from "./PurchaseMixCard";
 import { TaxBreakdownCards } from "./TaxBreakdownCards";
 import { RecentTransactionsTable } from "./RecentTransactionsTable";
 import { VoucherAuditInspectorModal } from "./VoucherAuditInspectorModal";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, X } from "lucide-react";
 
 export function DashboardPage() {
   const { user, activeTenant, logout, token } = useAuth();

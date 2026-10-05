@@ -44,31 +44,17 @@ export function SalesPurchasesTrendChart({
 
   // Normalize base monthly data strictly from API response (zeroed template if empty)
   const baseMonthly = useMemo(() => {
-    const hasLiveTrend = Array.isArray(monthlyTrend) && monthlyTrend.length > 0 && monthlyTrend.some((m) => Number(m.sales_raw || m.sales || m.purchases_raw || m.purchases || 0) > 0);
-
-    // Default 6 months baseline matching reference specification
-    const defaultBaseline = [
-      { month: "Apr 26", shortMonth: "Apr", sales_raw: 3500000, purchases_raw: 5500000, net_raw: 3800000 },
-      { month: "May 26", shortMonth: "May", sales_raw: 10500000, purchases_raw: 7200000, net_raw: 4800000 },
-      { month: "Jun 26", shortMonth: "Jun", sales_raw: 12800000, purchases_raw: 10000000, net_raw: 7200000 },
-      { month: "Jul 26", shortMonth: "Jul", sales_raw: 11500000, purchases_raw: 8800000, net_raw: 5200000 },
-      { month: "Aug 26", shortMonth: "Aug", sales_raw: 15800000, purchases_raw: 11200000, net_raw: 8200000 },
-      { month: "Sep 26", shortMonth: "Sep", sales_raw: 18800000, purchases_raw: 14500000, net_raw: 8800000 },
-    ];
-
-    if (hasLiveTrend) {
-      return monthlyTrend.map((m, idx) => {
+    if (Array.isArray(monthlyTrend) && monthlyTrend.length > 0) {
+      return monthlyTrend.map((m) => {
         const salesRaw = Number(m.sales_raw) || (Number(m.sales) || 0) * 100000;
         const purchasesRaw = Number(m.purchases_raw) || (Number(m.purchases) || 0) * 100000;
-        const shortName = m.month ? m.month.split(" ")[0] : (defaultBaseline[idx]?.shortMonth || "");
+        const shortName = m.shortMonth || (m.month ? m.month.split(" ")[0] : "");
 
-        // Net Operating Activity: zero when no activity, otherwise resolve operating base
         let netRaw = 0;
-        if (salesRaw > 0 || purchasesRaw > 0) {
+        if (m.net_raw !== undefined && m.net_raw !== null) {
           netRaw = Number(m.net_raw);
-          if (!netRaw || netRaw <= 0) {
-            netRaw = Math.max(Math.abs(salesRaw - purchasesRaw), Math.round(Math.min(salesRaw, purchasesRaw) * 0.65));
-          }
+        } else if (salesRaw > 0 || purchasesRaw > 0) {
+          netRaw = Math.max(0, salesRaw - purchasesRaw);
         }
 
         return {
@@ -84,20 +70,38 @@ export function SalesPurchasesTrendChart({
       });
     }
 
-    return defaultBaseline.map((item) => ({
-      ...item,
-      salesLabel: formatIndianCurrency(item.sales_raw),
-      purchasesLabel: formatIndianCurrency(item.purchases_raw),
-      netLabel: formatIndianCurrency(item.net_raw),
-    }));
-  }, [monthlyTrend]);
+    // Dynamic zero baseline generated according to active period (no hardcoded dummy figures)
+    const fyMatch = String(periodLabel || "").match(/(\d{4})|(\d{2})-(\d{2})/);
+    let startYear = 2026;
+    if (fyMatch) {
+      if (fyMatch[1]) startYear = parseInt(fyMatch[1], 10);
+      else if (fyMatch[2]) startYear = 2000 + parseInt(fyMatch[2], 10);
+    }
+    const monthNames = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+    return monthNames.map((mn, idx) => {
+      const yr = idx >= 9 ? startYear + 1 : startYear;
+      const monthStr = `${mn} ${String(yr).slice(-2)}`;
+      return {
+        month: monthStr,
+        shortMonth: mn,
+        sales_raw: 0,
+        purchases_raw: 0,
+        net_raw: 0,
+        salesLabel: "₹0",
+        purchasesLabel: "₹0",
+        netLabel: "₹0",
+      };
+    });
+  }, [monthlyTrend, periodLabel]);
 
   // Transform dataPoints based on active viewMode (Monthly, Quarterly, Cumulative)
   const dataPoints = useMemo(() => {
     if (currentMode === "quarterly") {
       const quarters = [];
       const quarterNames = ["Q1", "Q2", "Q3", "Q4"];
-      const quarterFullNames = ["Q1 FY27", "Q2 FY27", "Q3 FY27", "Q4 FY27"];
+      const fyMatch = String(periodLabel || "").match(/(\d{2})-(\d{2})/);
+      const fySuffix = fyMatch ? `FY${fyMatch[2]}` : "FY27";
+      const quarterFullNames = [`Q1 ${fySuffix}`, `Q2 ${fySuffix}`, `Q3 ${fySuffix}`, `Q4 ${fySuffix}`];
 
       for (let i = 0; i < baseMonthly.length; i += 3) {
         const chunk = baseMonthly.slice(i, i + 3);
@@ -145,7 +149,12 @@ export function SalesPurchasesTrendChart({
 
     // Default: monthly
     return baseMonthly;
-  }, [baseMonthly, currentMode]);
+  }, [baseMonthly, currentMode, periodLabel]);
+
+  // Check if all dataPoints have zero activity
+  const isAllZero = useMemo(() => {
+    return dataPoints.length === 0 || dataPoints.every((d) => d.sales_raw === 0 && d.purchases_raw === 0);
+  }, [dataPoints]);
 
   // Compute nice Y scale and ticks: [maxVal, midVal, 0]
   const yScale = useMemo(() => {
@@ -156,8 +165,8 @@ export function SalesPurchasesTrendChart({
 
     if (maxVal <= 0) {
       return {
-        niceMax: 20000000, // 2 Cr fallback
-        ticks: [20000000, 10000000, 0],
+        niceMax: 100000,
+        ticks: [100000, 50000, 0],
       };
     }
 
@@ -287,11 +296,20 @@ export function SalesPurchasesTrendChart({
         {/* Header & Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
           <div>
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              Sales vs Purchases
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                Sales vs Purchases
+              </h3>
+              {isAllZero && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                  No records
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Monthly financial activity across selected scope
+              {isAllZero
+                ? `No sales or purchase transactions recorded for ${periodLabel}`
+                : "Monthly financial activity across selected scope"}
             </p>
           </div>
 

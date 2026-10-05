@@ -3,14 +3,6 @@ import { formatCompactINR } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Default branch contributions matching the design specification
-const DEFAULT_BRANCH_CONTRIBUTIONS = [
-  { id: "delhi-01", name: "Delhi 01", sales: 48200000, purchases: 31700000, transactions: 537, color: "#2563EB" },
-  { id: "mumbai-01", name: "Mumbai 01", sales: 36100000, purchases: 23800000, transactions: 402, color: "#0EA5E9" },
-  { id: "bengaluru", name: "Bengaluru", sales: 27300000, purchases: 18000000, transactions: 305, color: "#10B981" },
-  { id: "delhi-02", name: "Delhi 02", sales: 16800000, purchases: 11100000, transactions: 188, color: "#F97316" },
-];
-
 export function BranchContributionPanel({
   branches = [],
   loading = false,
@@ -19,8 +11,7 @@ export function BranchContributionPanel({
 
   // Compute processed branches based on activeTab
   const processedBranches = useMemo(() => {
-    const hasLiveBranches = Array.isArray(branches) && branches.length > 0 && branches.some((b) => Number(b.revenue || b.sales || b.purchases || 0) > 0);
-    const sourceBranches = hasLiveBranches ? branches : DEFAULT_BRANCH_CONTRIBUTIONS;
+    const sourceBranches = Array.isArray(branches) ? branches : [];
 
     const items = sourceBranches.map((b, idx) => {
       let val = 0;

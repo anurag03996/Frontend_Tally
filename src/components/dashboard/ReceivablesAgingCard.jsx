@@ -3,12 +3,12 @@ import { formatCompactINR, formatIndianCurrency } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Default aging buckets matching reference specification
-const DEFAULT_AGING_BUCKETS = [
-  { id: "0-30", label: "0 – 30 days", range: "0-30", defaultPct: 72, color: "#10B981" },
-  { id: "31-60", label: "31 – 60 days", range: "31-60", defaultPct: 18, color: "#F59E0B" },
-  { id: "61-90", label: "61 – 90 days", range: "61-90", defaultPct: 7, color: "#F97316" },
-  { id: "90+", label: "90+ days", range: "90+", defaultPct: 3, color: "#EF4444" },
+// Default aging bucket schema (neutral templates without hardcoded percentages)
+const AGING_BUCKET_TEMPLATES = [
+  { id: "0-30", label: "0 – 30 days", range: "0-30", color: "#10B981" },
+  { id: "31-60", label: "31 – 60 days", range: "31-60", color: "#F59E0B" },
+  { id: "61-90", label: "61 – 90 days", range: "61-90", color: "#F97316" },
+  { id: "90+", label: "90+ days", range: "90+", color: "#EF4444" },
 ];
 
 export function ReceivablesAgingCard({
@@ -30,43 +30,43 @@ export function ReceivablesAgingCard({
         id: b.id || b.range || b.label,
         label: b.label || `${b.range} days`,
         range: b.range || b.label,
-        pct: Number(b.percentage ?? b.pct ?? 0),
-        amount: Number(b.amount ?? (safeTotal * (Number(b.percentage ?? 0) / 100))),
+        pct: safeTotal > 0 ? Number(b.percentage ?? b.pct ?? 0) : 0,
+        amount: safeTotal > 0 ? Number(b.amount ?? (safeTotal * (Number(b.percentage ?? 0) / 100))) : 0,
         color: b.color || "#10B981",
       }));
     } else {
-      // Dynamic derivation when using default proportions
-      items = DEFAULT_AGING_BUCKETS.map((b) => {
-        const amt = safeTotal > 0 ? Math.round(safeTotal * (b.defaultPct / 100)) : 0;
-        return {
-          id: b.id,
-          label: b.label,
-          range: b.range,
-          pct: b.defaultPct,
-          amount: amt,
-          color: b.color,
-        };
-      });
+      items = AGING_BUCKET_TEMPLATES.map((b) => ({
+        id: b.id,
+        label: b.label,
+        range: b.range,
+        pct: 0,
+        amount: 0,
+        color: b.color,
+      }));
     }
 
     // Geometry calculations for SVG Donut (viewBox 0 0 160 160, center 80, 80, radius 54)
     const radius = 54;
     const circumference = 2 * Math.PI * radius; // ~339.292
-    const totalUnits = items.reduce((acc, it) => acc + (it.pct || 0), 0) || 100;
+    const hasData = safeTotal > 0 && items.some((it) => it.pct > 0 || it.amount > 0);
+    const totalUnits = hasData ? items.reduce((acc, it) => acc + (it.pct || 0), 0) || 100 : 0;
 
     let currentOffset = 0;
     const slices = items.map((item) => {
-      const slicePct = item.pct / totalUnits;
+      const slicePct = totalUnits > 0 ? item.pct / totalUnits : 0;
       const strokeLength = slicePct * circumference;
       const dashArray = `${strokeLength} ${circumference - strokeLength}`;
       const dashOffset = -currentOffset;
 
-      currentOffset += strokeLength;
+      if (totalUnits > 0) {
+        currentOffset += strokeLength;
+      }
 
       return {
         ...item,
         dashArray,
         dashOffset,
+        strokeLength,
         formattedAmount: formatCompactINR(item.amount),
         fullAmount: formatIndianCurrency(item.amount),
       };
@@ -74,6 +74,7 @@ export function ReceivablesAgingCard({
 
     return {
       total: safeTotal,
+      hasData,
       formattedTotal: formatCompactINR(safeTotal),
       slices,
     };
@@ -148,8 +149,9 @@ export function ReceivablesAgingCard({
                 strokeWidth="15"
               />
 
-              {/* Connected Slices with Round Edges (reversed so primary segment sits on top) */}
-              {[...processed.slices].reverse().map((slice) => {
+              {/* Connected Slices with Round Edges (only if hasData, reversed so primary segment sits on top) */}
+              {processed.hasData && [...processed.slices].reverse().map((slice) => {
+                if (slice.strokeLength <= 0) return null;
                 const isHovered = hoveredBucket === slice.id;
                 return (
                   <circle
@@ -172,9 +174,9 @@ export function ReceivablesAgingCard({
               })}
 
               {/* Active Hovered Slice on Top */}
-              {hoveredBucket && (() => {
+              {processed.hasData && hoveredBucket && (() => {
                 const activeSlice = processed.slices.find((s) => s.id === hoveredBucket);
-                if (!activeSlice) return null;
+                if (!activeSlice || activeSlice.strokeLength <= 0) return null;
                 return (
                   <circle
                     cx="80"

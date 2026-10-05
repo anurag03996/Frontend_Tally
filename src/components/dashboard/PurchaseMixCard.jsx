@@ -3,13 +3,13 @@ import { formatCompactINR, formatIndianCurrency } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Default purchase categories matching reference specification
-const DEFAULT_PURCHASE_CATEGORIES = [
-  { id: "raw_materials", label: "Raw Materials", defaultPct: 48, color: "#2563EB" },
-  { id: "services", label: "Services", defaultPct: 26, color: "#0EA5E9" },
-  { id: "trading_goods", label: "Trading Goods", defaultPct: 15, color: "#64748B" },
-  { id: "capital_items", label: "Capital Items", defaultPct: 7, color: "#334155" },
-  { id: "other", label: "Other", defaultPct: 4, color: "#94A3B8" },
+// Default purchase category schema (neutral templates without hardcoded percentages)
+const PURCHASE_CATEGORY_TEMPLATES = [
+  { id: "raw_materials", label: "Raw Materials", color: "#2563EB" },
+  { id: "services", label: "Services", color: "#0EA5E9" },
+  { id: "trading_goods", label: "Trading Goods", color: "#64748B" },
+  { id: "capital_items", label: "Capital Items", color: "#334155" },
+  { id: "other", label: "Other", color: "#94A3B8" },
 ];
 
 export function PurchaseMixCard({
@@ -30,42 +30,42 @@ export function PurchaseMixCard({
       items = purchaseMixData.categories.map((c) => ({
         id: c.id || c.label?.toLowerCase().replace(/\s+/g, "_"),
         label: c.label || "Category",
-        pct: Number(c.percentage ?? c.pct ?? 0),
-        amount: Number(c.amount ?? (safeTotal * (Number(c.percentage ?? 0) / 100))),
+        pct: safeTotal > 0 ? Number(c.percentage ?? c.pct ?? 0) : 0,
+        amount: safeTotal > 0 ? Number(c.amount ?? (safeTotal * (Number(c.percentage ?? 0) / 100))) : 0,
         color: c.color || "#2563EB",
       }));
     } else {
-      // Dynamic derivation using default proportions
-      items = DEFAULT_PURCHASE_CATEGORIES.map((c) => {
-        const amt = safeTotal > 0 ? Math.round(safeTotal * (c.defaultPct / 100)) : 0;
-        return {
-          id: c.id,
-          label: c.label,
-          pct: c.defaultPct,
-          amount: amt,
-          color: c.color,
-        };
-      });
+      items = PURCHASE_CATEGORY_TEMPLATES.map((c) => ({
+        id: c.id,
+        label: c.label,
+        pct: 0,
+        amount: 0,
+        color: c.color,
+      }));
     }
 
     // Geometry calculations for SVG Donut (viewBox 0 0 160 160, center 80, 80, radius 54)
     const radius = 54;
     const circumference = 2 * Math.PI * radius; // ~339.292
-    const totalUnits = items.reduce((acc, it) => acc + (it.pct || 0), 0) || 100;
+    const hasData = safeTotal > 0 && items.some((it) => it.pct > 0 || it.amount > 0);
+    const totalUnits = hasData ? items.reduce((acc, it) => acc + (it.pct || 0), 0) || 100 : 0;
 
     let currentOffset = 0;
     const slices = items.map((item) => {
-      const slicePct = item.pct / totalUnits;
+      const slicePct = totalUnits > 0 ? item.pct / totalUnits : 0;
       const strokeLength = slicePct * circumference;
       const dashArray = `${strokeLength} ${circumference - strokeLength}`;
       const dashOffset = -currentOffset;
 
-      currentOffset += strokeLength;
+      if (totalUnits > 0) {
+        currentOffset += strokeLength;
+      }
 
       return {
         ...item,
         dashArray,
         dashOffset,
+        strokeLength,
         formattedAmount: formatCompactINR(item.amount),
         fullAmount: formatIndianCurrency(item.amount),
       };
@@ -73,6 +73,7 @@ export function PurchaseMixCard({
 
     return {
       total: safeTotal,
+      hasData,
       formattedTotal: formatCompactINR(safeTotal),
       slices,
     };
@@ -146,8 +147,9 @@ export function PurchaseMixCard({
                 strokeWidth="15"
               />
 
-              {/* Connected Slices with Round Edges (reversed so primary segment sits on top) */}
-              {[...processed.slices].reverse().map((slice) => {
+              {/* Connected Slices with Round Edges (only if hasData, reversed so primary segment sits on top) */}
+              {processed.hasData && [...processed.slices].reverse().map((slice) => {
+                if (slice.strokeLength <= 0) return null;
                 const isHovered = hoveredCategory === slice.id;
                 return (
                   <circle
@@ -170,9 +172,9 @@ export function PurchaseMixCard({
               })}
 
               {/* Active Hovered Slice on Top */}
-              {hoveredCategory && (() => {
+              {processed.hasData && hoveredCategory && (() => {
                 const activeSlice = processed.slices.find((s) => s.id === hoveredCategory);
-                if (!activeSlice) return null;
+                if (!activeSlice || activeSlice.strokeLength <= 0) return null;
                 return (
                   <circle
                     cx="80"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchTenantDashboardApi, fetchRecentVouchersApi } from "../services/tenantDashboardApi";
+import { fetchTenantCompaniesApi } from "../services/authApi";
 import { formatIndianCurrency } from "../lib/formatters";
 
 /**
@@ -139,6 +140,36 @@ export function useTenantDashboard({ tenantId, token }) {
   const [lastSynced, setLastSynced] = useState("Just now");
   const [masterBranches, setMasterBranches] = useState([]);
 
+  // Proactively fetch and preserve all tenant company entities
+  useEffect(() => {
+    if (!tenantId) return;
+    let isCancelled = false;
+
+    async function loadTenantCompanies() {
+      try {
+        const companies = await fetchTenantCompaniesApi(tenantId, token);
+        if (!isCancelled && Array.isArray(companies) && companies.length > 0) {
+          const colors = ["#2563EB", "#0EA5E9", "#10B981", "#F97316", "#8B5CF6", "#F59E0B"];
+          const formatted = companies.map((c, idx) => mapBranchItem(c, idx, 0, colors));
+          setMasterBranches((prev) => {
+            if (prev.length === 0) return formatted;
+            return formatted.map((f) => {
+              const existing = prev.find((p) => String(p.id) === String(f.id));
+              return existing ? { ...f, ...existing } : f;
+            });
+          });
+        }
+      } catch (err) {
+        console.warn("[useTenantDashboard] Could not load tenant companies:", err);
+      }
+    }
+
+    loadTenantCompanies();
+    return () => {
+      isCancelled = true;
+    };
+  }, [tenantId, token]);
+
   // Load consolidated tenant dashboard data
   const loadDashboard = useCallback(async () => {
     if (!tenantId) return;
@@ -155,15 +186,30 @@ export function useTenantDashboard({ tenantId, token }) {
       setData(dashboard);
       setLastSynced("Just now");
 
-      // Populate master list of branches if on consolidated view or if not yet populated
-      if (dashboard?.breakdown && (!selectedBranchId || masterBranches.length === 0)) {
-        const colors = ["#2563EB", "#0EA5E9", "#10B981", "#F97316", "#8B5CF6", "#F59E0B"];
-        const totalRev = Number(dashboard.summary?.total_revenue) || 1;
+      // Populate master list of branches if on consolidated view or from all_companies
+      const colors = ["#2563EB", "#0EA5E9", "#10B981", "#F97316", "#8B5CF6", "#F59E0B"];
+      const totalRev = Number(dashboard.summary?.total_revenue) || 1;
+
+      if (dashboard?.all_companies && Array.isArray(dashboard.all_companies) && dashboard.all_companies.length > 0) {
+        const breakdownMap = new Map((dashboard.breakdown || []).map((b) => [String(b.company_id || b._id), b]));
+        const mapped = dashboard.all_companies.map((c, idx) => {
+          const activeEntry = breakdownMap.get(String(c.company_id || c._id));
+          return mapBranchItem(activeEntry || c, idx, totalRev, colors);
+        });
+        setMasterBranches((prev) => {
+          if (prev.length === 0) return mapped;
+          return mapped.map((m) => {
+            const ex = prev.find((p) => String(p.id) === String(m.id));
+            if (!selectedBranchId) return m;
+            return ex ? { ...m, revenue: ex.revenue, sales: ex.sales, share: ex.share, sharePct: ex.sharePct } : m;
+          });
+        });
+      } else if (dashboard?.breakdown && (!selectedBranchId || masterBranches.length === 0)) {
         const mapped = dashboard.breakdown
           .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
           .sort((a, b) => b.revenue - a.revenue);
 
-        if (mapped.length > masterBranches.length) {
+        if (mapped.length >= masterBranches.length) {
           setMasterBranches(mapped);
         }
       }
@@ -250,16 +296,21 @@ export function useTenantDashboard({ tenantId, token }) {
 
   // Always keep all branches available for dropdown selector
   const branches = useMemo(() => {
-    if (!data?.breakdown || data.breakdown.length === 0) {
+    // Dropdown selector must always contain the full roster of tenant branches
+    if (masterBranches.length > 0) {
       return masterBranches;
     }
 
-    const totalRev = Number(summary.total_revenue) || 1;
-    const colors = ["#2563EB", "#0EA5E9", "#10B981", "#F97316", "#8B5CF6", "#F59E0B"];
+    if (data?.breakdown && data.breakdown.length > 0) {
+      const totalRev = Number(summary.total_revenue) || 1;
+      const colors = ["#2563EB", "#0EA5E9", "#10B981", "#F97316", "#8B5CF6", "#F59E0B"];
 
-    return data.breakdown
-      .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
-      .sort((a, b) => b.revenue - a.revenue);
+      return data.breakdown
+        .map((b, idx) => mapBranchItem(b, idx, totalRev, colors))
+        .sort((a, b) => b.revenue - a.revenue);
+    }
+
+    return [];
   }, [masterBranches, data?.breakdown, summary.total_revenue]);
 
   // Currently selected branch object
@@ -313,7 +364,7 @@ export function useTenantDashboard({ tenantId, token }) {
     return Math.max(1, Math.round(rec / dailyRev));
   }, [summary]);
 
-  // Receivables Aging distribution derived from live receivables or backend
+  // Receivables Aging distribution derived from backend summary
   const receivablesAging = useMemo(() => {
     if (data?.summary?.receivables_aging) {
       return data.summary.receivables_aging;
@@ -322,15 +373,15 @@ export function useTenantDashboard({ tenantId, token }) {
     return {
       total,
       buckets: [
-        { id: "0-30", label: "0 – 30 days", range: "0-30", percentage: 72, amount: Math.round(total * 0.72), color: "#10B981" },
-        { id: "31-60", label: "31 – 60 days", range: "31-60", percentage: 18, amount: Math.round(total * 0.18), color: "#F59E0B" },
-        { id: "61-90", label: "61 – 90 days", range: "61-90", percentage: 7, amount: Math.round(total * 0.07), color: "#F97316" },
-        { id: "90+", label: "90+ days", range: "90+", percentage: 3, amount: Math.round(total * 0.03), color: "#EF4444" },
+        { id: "0-30", label: "0 – 30 days", range: "0-30", percentage: 0, amount: 0, color: "#10B981" },
+        { id: "31-60", label: "31 – 60 days", range: "31-60", percentage: 0, amount: 0, color: "#F59E0B" },
+        { id: "61-90", label: "61 – 90 days", range: "61-90", percentage: 0, amount: 0, color: "#F97316" },
+        { id: "90+", label: "90+ days", range: "90+", percentage: 0, amount: 0, color: "#EF4444" },
       ],
     };
   }, [data, summary.total_receivable]);
 
-  // Purchase Mix spend distribution derived from live purchases or backend
+  // Purchase Mix spend distribution derived from backend summary
   const purchaseMix = useMemo(() => {
     if (data?.summary?.purchase_mix) {
       return data.summary.purchase_mix;
@@ -339,11 +390,11 @@ export function useTenantDashboard({ tenantId, token }) {
     return {
       total,
       categories: [
-        { id: "raw_materials", label: "Raw Materials", percentage: 48, amount: Math.round(total * 0.48), color: "#2563EB" },
-        { id: "services", label: "Services", percentage: 26, amount: Math.round(total * 0.26), color: "#0EA5E9" },
-        { id: "trading_goods", label: "Trading Goods", percentage: 15, amount: Math.round(total * 0.15), color: "#64748B" },
-        { id: "capital_items", label: "Capital Items", percentage: 7, amount: Math.round(total * 0.07), color: "#334155" },
-        { id: "other", label: "Other", percentage: 4, amount: Math.round(total * 0.04), color: "#94A3B8" },
+        { id: "raw_materials", label: "Raw Materials", percentage: 0, amount: 0, color: "#2563EB" },
+        { id: "services", label: "Services", percentage: 0, amount: 0, color: "#0EA5E9" },
+        { id: "trading_goods", label: "Trading Goods", percentage: 0, amount: 0, color: "#64748B" },
+        { id: "capital_items", label: "Capital Items", percentage: 0, amount: 0, color: "#334155" },
+        { id: "other", label: "Other", percentage: 0, amount: 0, color: "#94A3B8" },
       ],
     };
   }, [data, summary.total_purchase]);
